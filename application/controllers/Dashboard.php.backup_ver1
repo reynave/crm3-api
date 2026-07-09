@@ -1,0 +1,638 @@
+<?php
+defined('BASEPATH') or exit('No direct script access allowed');
+
+class Dashboard extends CI_Controller
+{
+    public function __construct()
+    {
+        parent::__construct();
+        $this->key = $this->db->key;
+        $this->openAPI = $this->db->openAPI;
+        header('Access-Control-Allow-Origin: *');
+        //header("Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, Accept");
+        header("Access-Control-Allow-Headers: Key, Token,  Content-Type");
+
+        header('Access-Control-Allow-Methods: GET, POST, PUT');
+        header('Content-Type: application/javascript');
+        // error_reporting(E_ALL);
+        date_default_timezone_set('Asia/Jakarta');
+        $this->db->query("SET time_zone = '+07:00'");
+        //  $this->core->https();
+
+        if (!$this->model->header($this->openAPI)) {
+            echo $this->model->error("Error auth");
+            exit;
+        }
+    }
+
+    public function index()
+    {
+        $id = $this->input->get('id');
+
+        $peroid = $this->input->get('period');
+        $interval = "3";
+
+        if ($peroid == 'month') {
+            $interval = "1";
+        } else if ($peroid == 'quarter') {
+            $interval = "3";
+        } else if ($peroid == 'year') {
+            $interval = "12";
+        }  
+
+
+
+        $user = [];
+        $account_manager = [];
+
+        $q = 'SELECT * FROM crm3_user WHERE presence = 1 ' . $this->model->user_group()['query'];
+        $q_user = $this->model->user_group('id_user')['query'];
+
+        $query = $this->db->query($q);
+        foreach ($query->result() as $row) {
+            $temp = array(
+                "id" => $row->id,
+                "name" => $row->first_name . ' ' . $row->last_name,
+            );
+            array_push($user, $temp);
+            array_push($account_manager, $temp);
+        }
+
+        $q_user_join = "";
+        if ($id > 0) {
+            $q_user = " and id_user = " . $id . " ";
+            $q_user_join = " and l.id_user = " . $id . " ";
+
+            $account_manager = array(
+                array(
+                    "id" => $id,
+                    "name" => $this->model->crm3('concat(first_name," ",last_name)', 'user', 'id=' . $id),
+                ),
+            );
+        }
+
+      
+        if(  date('m') == '1')  {  $curQuarter = 1;  } 
+        if(  date('m') == '2')  {  $curQuarter = 1;  } 
+        if(  date('m') == '3')  {  $curQuarter = 1;  } 
+
+        if(  date('m') == '4')  {  $curQuarter = 2;  } 
+        if(  date('m') == '5')  {  $curQuarter = 2;  } 
+        if(  date('m') == '6')  {  $curQuarter = 2;  } 
+
+        if(  date('m') == '7')  {  $curQuarter = 3;  } 
+        if(  date('m') == '8')  {  $curQuarter = 3;  } 
+        if(  date('m') == '9')  {  $curQuarter = 3;  } 
+
+        if(  date('m') == '10')  {  $curQuarter = 4;  } 
+        if(  date('m') == '11')  {  $curQuarter = 4;  } 
+        if(  date('m') == '12')  {  $curQuarter = 4;  } 
+        
+
+
+        if(  $curQuarter == 1 ){ $beetwen = " ( input_date >= '".date('Y')."-01-01 00:00'   AND  input_date <= '".date('Y')."-03-31 23:59') "; } 
+        else if(  $curQuarter == 2 ){ $beetwen = " ( input_date >= '".date('Y')."-04-01 00:00'   AND  input_date <= '".date('Y')."-06-30 23:59') "; } 
+        else if(  $curQuarter == 3 ){ $beetwen = " ( input_date >= '".date('Y')."-07-01 00:00'   AND  input_date <= '".date('Y')."-09-30 23:59') "; } 
+        else if(  $curQuarter == 4 ){ $beetwen = " ( input_date >= '".date('Y')."-10-01 00:00'   AND  input_date <= '".date('Y')."-12-31 23:59') "; } 
+
+        $lead = array(
+            // SELECT COUNT(id) FROM crm3_lead WHERE presence = 1 AND  DATE_FORMAT(input_date,'%y-%m-%d') = CURDATE();
+            "today" => $this->model->crm3('COUNT(id)', 'lead',  "  DATE_FORMAT(input_date,'%y-%m-%d') = CURDATE() " . $q_user),
+           // "month" => $this->model->crm3('COUNT(id)', 'lead', "  input_date  > CURDATE() - INTERVAL 30 DAY  " . $q_user),
+             "month" => $this->model->crm3('COUNT(id)', 'lead', "   MONTH(input_date) =  MONTH(CURRENT_DATE())  " . $q_user),
+           
+            "quarter" => $this->model->crm3('COUNT(id)', 'lead',  $beetwen."  " . $q_user),
+            "year" => $this->model->crm3('COUNT(id)', 'lead', "  YEAR(input_date) = '".date('Y')."' " . $q_user),
+        );
+
+
+        
+
+
+
+        $year = " YEAR(input_date) = '".date('Y')."' ";
+        $funnel = array(
+            array(
+                "label" => "Lead",
+                "value" =>  (int) $this->model->crm3('COUNT(id)', 'lead',   $year  . $q_user)
+            ),
+            array(
+                "label" => "Opportunity",
+                "value" =>   (int) $this->model->crm3('COUNT(id)', 'opportunity', "presence = 1  and " .$year. '  '. $q_user)
+            ),
+            array(
+                "label" => "Quotation",
+                "value" =>  (int) $this->model->crm3('COUNT(id)', 'quote', "presence = 1  and "  .$year. '  '. $q_user),
+            ),
+            array(
+                "label" => "Deal",
+                "value" => (int) $this->model->crm3('COUNT(id)', 'opportunity', "id_stage = 1000 and presence = 1 and closed = 1 and"  . $year. '  '. $q_user),
+            ),
+        );
+
+
+
+
+        $event = [];
+        $query = $this->db->query('SELECT * FROM crm3_activity WHERE input_date  > CURDATE() - INTERVAL 1 MONTH and presence = 1 AND closed = 0 AND id_activity_type = 300 ' . $q_user);
+        foreach ($query->result() as $row) {
+            $temp = array(
+                "id" => $row->id,
+                "subject" => $row->subject,
+                "name" => $row->id_module == '200' ?  $this->model->lead($row->id_person) :  $this->model->contact($row->id_person),
+                "module" => $this->model->crm3('name', 'module', 'id=' . $row->id_module),
+                "start_datetime" => $row->start_date . ' ' . $row->start_time,
+            );
+            array_push($event, $temp);
+        }
+
+        $visit = [];
+        $query = $this->db->query('SELECT * FROM crm3_activity WHERE input_date  > CURDATE() - INTERVAL 1 MONTH AND   presence = 1 AND closed = 0 AND id_activity_type = 200 ' . $q_user);
+        foreach ($query->result() as $row) {
+            $temp = array(
+                "id" => $row->id,
+                "subject" => $row->subject,
+                "name" => $row->id_module == '200' ?  $this->model->lead($row->id_person) :  $this->model->contact($row->id_person),
+                "module" => $this->model->crm3('name', 'module', 'id=' . $row->id_module),
+                "start_datetime" => $row->start_date . ' ' . $row->start_time,
+            );
+            array_push($visit, $temp);
+        }
+
+
+
+
+        $recentQuotation = [];
+        $query = $this->db->query('SELECT * FROM crm3_quote WHERE presence = 1 AND id_quote_status_final = 0  ' . $q_user . '  order by update_date DESC limit 5');
+        foreach ($query->result() as $row) {
+            $id_company =  $this->model->crm3('id_company', 'opportunity', 'id="' . $row->id_opportunity . '" ');
+            $ver = $row->version > 0 ?  ' ver ' . $row->version : "";
+            $temp = array(
+                "id" => $row->id,
+                "quotes_number" => $row->quotes_number . " " . $ver,
+                "company" => $this->model->crm3('name', 'company', 'id="' . $id_company . '" '),
+                "grand_total" => $row->grand_total,
+                "status" => $this->model->crm3('name', 'quote_status', 'id="' . $row->id_quote_status . '" '),
+                "input_date" => $row->input_date,
+            );
+            array_push($recentQuotation, $temp);
+        }
+
+        $recentwins = [];
+        $query = $this->db->query('SELECT * FROM crm3_sales_order WHERE presence = 1  ' . $q_user . '  order by update_date DESC limit 5');
+        foreach ($query->result() as $row) {
+
+            $temp = array(
+                "id" => $row->id,
+                "so_number" => $row->so_number,
+                "company" => $this->model->crm3('name', 'company', 'id="' . $row->id_company . '" '),
+                "grand_total" => $row->grand_total,
+                // "status" => $this->model->crm3('name','quote_status','id="'.$row->id_quote_status.'" '),
+                "input_date" => $row->input_date,
+            );
+            array_push($recentwins, $temp);
+        }
+
+
+
+
+        $datasets = array(
+            "label" => "# of Distribution",
+            "borderWidth" => 1,
+            "data"  => [12, 19, 3, 5, 2, 3],
+            "backgroundColor" => array(
+                'rgb(255, 99, 132)',
+                'rgb(54, 162, 235)',
+                'rgb(255, 206, 86)',
+                'rgb(75, 192, 192)',
+                'rgb(153, 102, 255)',
+                'rgb(255, 159, 64)'
+            ),
+        );
+
+
+        $lead_source = [];    $data_bgn = [];   $data_lead_source = [];
+
+
+
+       
+
+
+        if ($peroid == 'month') {
+            $interval = "  MONTH(l.input_date) =  MONTH(CURRENT_DATE())  ";
+        } 
+        else if ($peroid == 'quarter') {
+            $interval =  " ( l.input_date >= '".date('Y')."-01-01 00:00'   AND  l.input_date <= '".date('Y')."-03-31 23:59') "; 
+
+
+            if(  $curQuarter == 1 ){ $interval = " ( l.input_date >= '".date('Y')."-01-01 00:00'   AND  l.input_date <= '".date('Y')."-03-31 23:59') "; } 
+            else if(  $curQuarter == 2 ){ $interval = " ( l.input_date >= '".date('Y')."-04-01 00:00'   AND  l.input_date <= '".date('Y')."-06-30 23:59') "; } 
+            else if(  $curQuarter == 3 ){ $interval = " ( l.input_date >= '".date('Y')."-07-01 00:00'   AND  l.input_date <= '".date('Y')."-09-30 23:59') "; } 
+            else if(  $curQuarter == 4 ){ $interval = " ( l.input_date >= '".date('Y')."-10-01 00:00'   AND  l.input_date <= '".date('Y')."-12-31 23:59') "; } 
+
+
+
+
+
+        } 
+        else if ($peroid == 'year') {
+            $interval = "  l.input_date > CURDATE() - INTERVAL 1 YEAR ";
+        }  
+
+
+
+        $totalLead = $this->model->crm3('count(id)', 'lead', str_replace('l.','', $interval));
+        $qls = "
+        SELECT IFNULL(ls.name,'Undefined') AS 'lead_source', l.id_lead_source, IFNULL( ls.backgroundColor,'rgb(222,226,230)') as 'backgroundColor' ,
+        COUNT(l.id) as 'total',  ( COUNT(l.id) / " . $totalLead . " ) * 100 AS 'percent'
+        FROM crm3_lead AS l
+        LEFT JOIN crm3_lead_source AS ls ON ls.id = l.id_lead_source
+        LEFT JOIN crm3_user AS u ON u.id = l.id_user
+        WHERE  
+        ".$interval."
+        " . $q_user_join . " 
+        ".$this->model->user_group('l.id_user')['query']."
+        GROUP BY l.id_lead_source
+        ";
+        $totalLS = 0;
+        $query = $this->db->query($qls);
+        foreach ($query->result() as $row) {
+            array_push($lead_source,   $row->lead_source);
+            array_push($data_lead_source, (int) $row->total);
+            array_push($data_bgn,  $row->backgroundColor);
+            $totalLS += $row->total;
+        }
+        $datasets = array(
+            "label" => "# of Distribution",
+            "borderWidth" => 1,
+            "data"  => $data_lead_source,
+            "backgroundColor" => $data_bgn,
+        );
+        $leadPerDistribution = array(
+            "labels" =>  $lead_source,
+            "datasets"  =>  [$datasets],
+        );
+
+        $industry = [];
+        $data_industry = [];
+        $data_industry_bgn = [];
+
+
+        $q2 = "
+        SELECT IFNULL(ls.name,'Undefined') AS 'industry', l.id_industry, IFNULL( ls.backgroundColor,'rgb(222,226,230)') as 'backgroundColor' ,
+        COUNT(l.id) as 'total',  ( COUNT(l.id) / " . $totalLead . " ) * 100 AS 'percent' 
+        FROM crm3_lead AS l
+        LEFT JOIN crm3_industry AS ls ON ls.id = l.id_industry
+        LEFT JOIN crm3_user AS u ON u.id = l.id_user
+        WHERE 
+        ".$interval."
+        " . $q_user_join . " 
+        ".$this->model->user_group('l.id_user')['query']."
+        GROUP BY l.id_industry
+        ";
+        $query = $this->db->query($q2);
+        $totalLI = 0;
+        foreach ($query->result() as $row) {
+            array_push($industry,   $row->industry);
+            array_push($data_industry, (int) $row->total);
+            array_push($data_industry_bgn, $row->backgroundColor);
+            $totalLI += $row->total;
+        }
+        $datasets = array(
+            "label" => "# of Distribution",
+            "borderWidth" => 1,
+            "data"  => $data_industry,
+            "backgroundColor" => $data_industry_bgn,
+        );
+        $leadPerIndustry = array(
+            "labels" =>   $industry,
+            "datasets"  =>  [$datasets],
+        );;
+
+
+        $year = date('Y');
+        $currency = $this->model->currency();
+        $target = array(
+            array(
+                "name" => "Amount " . $year, // Actual nya ini di compared berdasarkan SO yang sudah di proses
+                "background" => "#1EB2A6",
+                "target" => false,
+                "q1" =>   array(
+                    "target" => (float) $this->model->crm3('sum(amount/4)', 'user_target', ' year = "' . $year . '" ' . $q_user),
+                    "achieve" =>(float) $this->model->crm3('sum(grand_total)', 'sales_order', ' id_sales_order_status > 0 and  (input_date BETWEEN "' . $year . '-01-01" AND "' . $year . '-03-31")  ' . $q_user),
+                ),
+                "q2" =>   array(
+                    "target" =>  (float) $this->model->crm3('sum(amount/4)', 'user_target', ' year = "' . $year . '" ' . $q_user),  
+                    "achieve" =>(float) $this->model->crm3('sum(grand_total)', 'sales_order', ' id_sales_order_status > 0 and  (input_date BETWEEN "' . $year . '-04-01" AND "' . $year . '-06-31")  ' . $q_user),
+                ),
+                "q3" =>   array(
+                    "target" =>  (float) $this->model->crm3('sum(amount/4)', 'user_target', ' year = "' . $year . '" ' . $q_user), 
+                    "achieve" => (float)$this->model->crm3('sum(grand_total)', 'sales_order', ' id_sales_order_status > 0 and  (input_date BETWEEN "' . $year . '-07-01" AND "' . $year . '-09-31")  ' . $q_user),
+                ),
+                "q4" =>   array(
+                    "target" =>  (float) $this->model->crm3('sum(amount/4)', 'user_target', ' year = "' . $year . '" ' . $q_user),
+                    "achieve" =>(float) $this->model->crm3('sum(grand_total)', 'sales_order', ' id_sales_order_status > 0 and  (input_date BETWEEN "' . $year . '-10-01" AND "' . $year . '-12-31")  ' . $q_user),  
+                ),
+            ),
+
+            array(
+                "name" => "Leads " . $year, //Number yang di create lead per tiap quarternya
+                "background" => "rgb(246, 200, 159)",
+                "target" => false,
+                "q1" => array(
+                    "achieve" => (float) $this->model->crm3('count(id)', 'lead', '  (input_date BETWEEN "' . $year . '-01-01" AND "' . $year . '-03-31")  ' . $q_user),
+                    "target" => (float) $this->model->crm3('sum(leads/4)', 'user_target', ' year = "' . $year . '" ' . $q_user),
+                ),
+                "q2" => array(
+                    "achieve" => (float) $this->model->crm3('count(id)', 'lead', '  (input_date BETWEEN "' . $year . '-04-01" AND "' . $year . '-06-31")  ' . $q_user),
+                    "target" => (float) $this->model->crm3('sum(leads/4)', 'user_target', ' year = "' . $year . '" ' . $q_user),
+                ),
+                "q3" => array(
+                    "achieve" => (float) $this->model->crm3('count(id)', 'lead', '  (input_date BETWEEN "' . $year . '-07-01" AND "' . $year . '-09-31")  ' . $q_user),
+                    "target" => (float) $this->model->crm3('sum(leads/4)', 'user_target', ' year = "' . $year . '" ' . $q_user),
+                ),
+                "q4" => array(
+                    "achieve" => (float) $this->model->crm3('count(id)', 'lead', '  (input_date BETWEEN "' . $year . '-10-01" AND "' . $year . '-12-31")  ' . $q_user),
+                    "target" => (float) $this->model->crm3('sum(leads/4)', 'user_target', ' year = "' . $year . '" ' . $q_user),
+                ),
+            ),
+
+            array(
+                "name" => "Opportunities " . $year, //Number ini dari total quotation yang sedang di proses
+                "background" => "rgb(50, 130, 184)",
+                "target" => false,
+                "q1" => array(
+                    "achieve" => (float) $this->model->crm3('count(id)', 'opportunity', 'presence  = 1 and   (input_date BETWEEN "' . $year . '-01-01" AND "' . $year . '-03-31")  ' . $q_user),
+                    "target" => (float) $this->model->crm3('sum(opportunities/4)', 'user_target', ' year = "' . $year . '" ' . $q_user),
+                ),
+                "q2" => array(
+                    "achieve" => (float) $this->model->crm3('count(id)', 'opportunity', 'presence  = 1 and   (input_date BETWEEN "' . $year . '-04-01" AND "' . $year . '-06-31")  ' . $q_user),
+                    "target" => (float) $this->model->crm3('sum(opportunities/4)', 'user_target', ' year = "' . $year . '" ' . $q_user),
+                ),
+                "q3" => array(
+                    "achieve" => (float) $this->model->crm3('count(id)', 'opportunity', 'presence  = 1 and   (input_date BETWEEN "' . $year . '-07-01" AND "' . $year . '-09-31")  ' . $q_user),
+                    "target" => (float) $this->model->crm3('sum(opportunities/4)', 'user_target', ' year = "' . $year . '" ' . $q_user),
+                ),
+                "q4" => array(
+                    "achieve" =>(float) $this->model->crm3('count(id)', 'opportunity', 'presence  = 1 and   (input_date BETWEEN "' . $year . '-10-01" AND "' . $year . '-12-31")  ' . $q_user),
+                    "target" => (float) $this->model->crm3('sum(opportunities/4)', 'user_target', ' year = "' . $year . '" ' . $q_user),
+                ),
+            ),
+
+            array(
+                "name" => "Quotes " . $year, //Number yang di create lead per tiap quarternya
+                "background" => "rgb(74, 105, 187)",
+                "target" => false,
+                "q1" => array(
+                    "achieve" => (float) $this->model->crm3('count(id)', 'quote', 'presence  = 1 and (input_date BETWEEN "' . $year . '-01-01" AND "' . $year . '-03-31")  ' . $q_user),
+                    "target" => (float) $this->model->crm3('sum(quotes/4)', 'user_target', ' year = "' . $year . '" ' . $q_user),
+                ),
+                "q2" => array(
+                    "achieve" => (float) $this->model->crm3('count(id)', 'quote', 'presence  = 1 and  (input_date BETWEEN "' . $year . '-04-01" AND "' . $year . '-06-31")  ' . $q_user),
+                    "target" => (float)$this->model->crm3('sum(quotes/4)', 'user_target', ' year = "' . $year . '" ' . $q_user),
+                ),
+                "q3" => array(
+                    "achieve" => (float) $this->model->crm3('count(id)', 'quote', 'presence  = 1 and  (input_date BETWEEN "' . $year . '-07-01" AND "' . $year . '-09-31")  ' . $q_user),
+                    "target" => (float) $this->model->crm3('sum(quotes/4)', 'user_target', ' year = "' . $year . '" ' . $q_user),
+                ),
+                "q4" => array(
+                    "achieve" => (float) $this->model->crm3('count(id)', 'quote', 'presence  = 1 and   (input_date BETWEEN "' . $year . '-10-01" AND "' . $year . '-12-31")  ' . $q_user),
+                    "target" => (float) $this->model->crm3('sum(quotes/4)', 'user_target', ' year = "' . $year . '" ' . $q_user),
+                ),
+            ),
+
+        );
+
+
+        $backgroundColor = array(
+            array(
+                0 =>  'rgb(30, 178, 166)',
+                1 => 'rgb(212, 248, 232)',
+            ),
+            array(
+                0 => 'rgb(246, 200, 159)',
+                1 => 'rgb(255, 231, 209)',
+            ),
+            array(
+                0 => 'rgb(50, 130, 184)',
+                1 => 'rgb(187, 225, 250)',
+            ),
+            array(
+                0 => 'rgb(252,157,157)',
+                1 => 'rgb(243,212,212)',
+            ),
+        );
+
+
+
+        $barChartDataAmount = array(
+            "labels" => array('Quarter 1', 'Quarter 2', 'Quarter 3', 'Quarter 4'),
+            "datasets" => array(
+                array(
+                    "label" => "Achieve",
+                    "backgroundColor" => $backgroundColor[0][0],
+                    "stack" => "amount",
+                    "data" => array($target[0]['q1']['achieve'], $target[0]['q2']['achieve'], $target[0]['q3']['achieve'], $target[0]['q3']['achieve']),
+                ),
+                array(
+                    "label" => "Remaining achievements",
+                    "backgroundColor" => $backgroundColor[0][1],
+                    "stack" => "amount",
+                    "data" => array(
+                        $target[0]['q1']['target'] - $target[0]['q1']['achieve'] < 0 ? 0 :  $target[0]['q1']['target'] - $target[0]['q1']['achieve'],
+                        $target[0]['q2']['target'] - $target[0]['q2']['achieve'] < 0 ? 0 :  $target[0]['q2']['target'] - $target[0]['q2']['achieve'],
+                        $target[0]['q3']['target'] - $target[0]['q3']['achieve'] < 0 ? 0 :  $target[0]['q3']['target'] - $target[0]['q3']['achieve'],
+                        $target[0]['q3']['target'] - $target[0]['q4']['achieve'] < 0 ? 0 :  $target[0]['q4']['target'] - $target[0]['q4']['achieve'],
+                    ),
+                ),
+              
+            ),
+        );
+ 
+        $barChartDataQty = array(
+            "labels" => array('Quarter 1', 'Quarter 2', 'Quarter 3', 'Quarter 4'),
+            "datasets" => array(
+                array(
+                    "label" => "Leads Actual",
+                    "backgroundColor" => $backgroundColor[1][0],
+                    "stack" => "leads",
+                    "data" => array($target[1]['q1']['achieve'], $target[1]['q2']['achieve'], $target[1]['q3']['achieve'], $target[1]['q3']['achieve']),
+                ),
+                array(
+                    "label" => "Leads remaining achievements",
+                    "backgroundColor" => $backgroundColor[1][1],
+                    "stack" => "leads",
+                    "data" => array(
+                        $target[1]['q1']['target'] - $target[1]['q1']['achieve'] ,
+                         $target[1]['q2']['target'] - $target[1]['q2']['achieve'] ,
+                         $target[1]['q3']['target'] - $target[1]['q3']['achieve'] ,
+                         $target[1]['q3']['target'] - $target[1]['q4']['achieve'] 
+                    ),
+                ),
+
+
+
+                array(
+                    "label" => "Opportunities Actual",
+                    "backgroundColor" => $backgroundColor[2][0],
+                    "stack" => "opportunities",
+                    "data" => array($target[2]['q1']['achieve'], $target[2]['q2']['achieve'], $target[2]['q3']['achieve'], $target[2]['q3']['achieve']),
+                ),
+                array(
+                    "label" => "Opportunities remaining achievements",
+                    "backgroundColor" => $backgroundColor[2][1],
+                    "stack" => "opportunities",
+                    "data" => array(
+                        $target[2]['q1']['target'] - $target[2]['q1']['achieve'] ,
+                         $target[2]['q2']['target'] - $target[2]['q2']['achieve'] ,
+                         $target[2]['q3']['target'] - $target[2]['q3']['achieve'] ,
+                         $target[2]['q3']['target'] - $target[2]['q4']['achieve'] 
+                    ),
+                ),
+
+
+
+
+                array(
+                    "label" => "Quotes Actual",
+                    "backgroundColor" => $backgroundColor[3][0],
+                    "stack" => "quotes",
+                    "data" => array($target[3]['q1']['achieve'], $target[3]['q2']['achieve'], $target[3]['q3']['achieve'], $target[3]['q3']['achieve']),
+                ),
+                array(
+                    "label" => "Quotes  remaining achievements",
+                    "backgroundColor" => $backgroundColor[3][1],
+                    "stack" => "quotes",
+                    "data" => array(
+                        $target[3]['q1']['target'] - $target[3]['q1']['achieve'] ,
+                         $target[3]['q2']['target'] - $target[3]['q2']['achieve'] ,
+                         $target[3]['q3']['target'] - $target[3]['q3']['achieve'] ,
+                         $target[3]['q3']['target'] - $target[3]['q4']['achieve'] 
+                    ),
+                ),
+            ),
+        );
+
+        $json = array(
+            "error"  =>  0,
+            "q" => $qls,
+            "user_group" => $this->model->user_group()['query'],
+            "result" => array(
+                "currency" => $this->model->currency(),
+                "lead" => $lead,
+                "id_user_select" =>  $id ?  $id : "0",
+                "account_manager" => $account_manager,
+                "lead" => $lead,
+                "funnel" => $funnel,
+                "event" => $event,
+                "visit" => $visit,
+                "user" => $user,
+                "leadPerDistribution" => $leadPerDistribution,
+                "totalLS" => $totalLS,
+
+                "leadPerIndustry" => $leadPerIndustry,
+                "totalLI" => $totalLI,
+ 
+                "target" => $target,
+
+                "recentwins" => $recentwins,
+                "recentQuotation" => $recentQuotation,
+                "list" => $this->model->user_recursive($id),
+
+                "barChartDataAmount" => $barChartDataAmount,
+                "barChartDataQty" => $barChartDataQty,
+
+            ),
+        );
+
+        echo json_encode($json);
+    }
+
+
+    
+    public function home()
+    {
+        
+        $q_user = " and id_user = " . $this->model->id_user() . " "; 
+ 
+
+        $event = [];
+        $query = $this->db->query('SELECT * FROM crm3_activity WHERE input_date  > CURDATE() - INTERVAL 1 MONTH and presence = 1 AND closed = 0 AND id_activity_type = 300 ' . $q_user);
+        foreach ($query->result() as $row) {
+            $temp = array(
+                "id" => $row->id,
+                "subject" => $row->subject,
+                "name" => $row->id_module == '200' ?  $this->model->lead($row->id_person) :  $this->model->contact($row->id_person),
+                "module" => $this->model->crm3('name', 'module', 'id=' . $row->id_module),
+                "start_datetime" => $row->start_date . ' ' . $row->start_time,
+            );
+            array_push($event, $temp);
+        }
+
+        $visit = [];
+        $query = $this->db->query('SELECT * FROM crm3_activity WHERE input_date  > CURDATE() - INTERVAL 1 MONTH AND   presence = 1 AND closed = 0 AND id_activity_type = 200 ' . $q_user);
+        foreach ($query->result() as $row) {
+            $temp = array(
+                "id" => $row->id,
+                "subject" => $row->subject,
+                "name" => $row->id_module == '200' ?  $this->model->lead($row->id_person) :  $this->model->contact($row->id_person),
+                "module" => $this->model->crm3('name', 'module', 'id=' . $row->id_module),
+                "start_datetime" => $row->start_date . ' ' . $row->start_time,
+            );
+            array_push($visit, $temp);
+        }
+
+ 
+        $recentwins = [];
+        $query = $this->db->query('SELECT * FROM crm3_sales_order WHERE presence = 1  ' . $q_user . '  order by update_date DESC limit 5');
+        foreach ($query->result() as $row) {
+
+            $temp = array(
+                "id" => $row->id,
+                "so_number" => $row->so_number,
+                "company" => $this->model->crm3('name', 'company', 'id="' . $row->id_company . '" '),
+                "grand_total" => $row->grand_total,
+                // "status" => $this->model->crm3('name','quote_status','id="'.$row->id_quote_status.'" '),
+                "input_date" => $row->input_date,
+            );
+            array_push($recentwins, $temp);
+        }
+
+
+        $recentQuotation = [];
+        $query = $this->db->query('SELECT * FROM crm3_quote WHERE presence = 1 AND id_quote_status_final = 0  ' . $q_user . '  order by update_date DESC limit 5');
+        foreach ($query->result() as $row) {
+            $id_company =  $this->model->crm3('id_company', 'opportunity', 'id="' . $row->id_opportunity . '" ');
+            $ver = $row->version > 0 ?  ' ver ' . $row->version : "";
+            $temp = array(
+                "id" => $row->id,
+                "quotes_number" => $row->quotes_number . " " . $ver,
+                "company" => $this->model->crm3('name', 'company', 'id="' . $id_company . '" '),
+                "grand_total" => $row->grand_total,
+                "status" => $this->model->crm3('name', 'quote_status', 'id="' . $row->id_quote_status . '" '),
+                "input_date" => $row->input_date,
+            );
+            array_push($recentQuotation, $temp);
+        }
+
+ 
+        
+        $json = array(
+            "error"  =>  0,
+            "id_user" => $this->model->id_user(),
+            "result" => array(
+                "currency" => $this->model->currency(),
+                "user" => array(
+                    "name" => $this->model->crm3("concat(first_name,' ',last_name)","user","id = ".$this->model->id_user() ),
+                    "company" => $this->model->select("company","account","id = 1" ), 
+                ),
+                "event" => $event,
+                "visit" => $visit,
+                "recentwins" => $recentwins,
+                "recentQuotation" => $recentQuotation,
+            ),
+        );
+
+        echo json_encode($json);
+    }
+}

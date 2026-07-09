@@ -1,0 +1,791 @@
+<?php
+defined('BASEPATH') or exit('No direct script access allowed');
+class Model extends CI_Model
+{
+
+    function __construct()
+    {
+        /* Call the Model constructor */
+        parent::__construct();
+    }
+
+    function https()
+    {
+        if ($this->db->https == TRUE) {
+            if (!isset($_SERVER['HTTPS']) || $_SERVER['HTTPS'] != "on") {
+                $url = "https://" . $_SERVER['SERVER_NAME'] . $_SERVER['REQUEST_URI'];
+                redirect($url);
+                exit;
+            }
+        }
+    }
+    function selected($value1 = "", $value2 = "")
+    {
+        if ($value1 == $value2) {
+            return 'selected="selected"';
+        }
+    }
+
+    function select($field, $table, $where = "")
+    {
+        $query = "SELECT " . $field . " FROM " . $table . " WHERE " . $where;
+        $query = $this->db->query($query);
+        if ($query->row()) {
+            $row = $query->row();
+            return  $row->$field;
+        }
+    }
+
+    function crm3($field, $table, $where = "")
+    {
+        $query = "SELECT " . $field . " FROM crm3_" . $table . " WHERE " . $where;
+        $query = $this->db->query($query);
+        if ($query->row()) {
+            $row = $query->row();
+            return  $row->$field;
+        }
+    }
+
+    function base64Decode($description = "")
+    {
+        $description  = str_replace(' ', '+', $description);
+        $description  = base64_decode($description);
+        return $description;
+    }
+
+    function token($token = "")
+    {
+        if (self::select('id', 'user', 'token= "' . $token . '"  and presence = 1')) {
+            return self::select('id', 'user', 'token= "' . $token . '"  and presence = 1');
+        } else {
+            return false;
+        }
+    }
+
+    function error($note = "")
+    {
+        $json = array(
+            "error" => 400,
+            "note" => $note,
+        );
+
+        return json_encode($json);
+    }
+
+    function key()
+    {
+         
+                return true;
+           
+    }
+
+    function header($openAPI = false)
+    {
+       $headers = array_change_key_case(getallheaders(), CASE_LOWER);
+        if ($openAPI == true && isset($headers['token']) ) {
+
+            $token = $headers['token'];
+
+            $this->load->library('Jwt_lib');
+            $decoded = $this->jwt_lib->validate_token($token);
+       
+
+            if (!$decoded) {
+                return false;
+            }else{
+                return  true;
+            }
+           
+       
+        } else {
+            return false;
+        }
+
+
+ 
+    }
+
+
+
+    function checkKey()
+    {
+         return true;
+    }
+
+
+    function id_user()
+    {
+
+    
+        $headers = array_change_key_case(getallheaders(), CASE_LOWER);
+ 
+        if ($headers['token']) {
+           
+            $token = $headers['token'];
+            $this->load->library('Jwt_lib');
+            $decoded = $this->jwt_lib->validate_token($token);
+   
+         
+            return $decoded['data']->id;
+        } else {
+            return false;
+        }
+
+        
+    }
+
+
+    function number($name = "")
+    {
+        if ($name) {
+            $number = self::select('runing_number', 'crm3_number', 'name="' . $name . '"') + 1;
+            $update = array(
+                "runing_number"   => $number,
+                "latest_request_date"   => date("Y-m-d H:i:s"),
+                "latest_request_by"   => self::id_user(),
+
+            );
+            $this->db->update("crm3_number", $update, 'name="' . $name . '" ');
+
+
+            $new_number = str_pad($number, self::select('digit', 'crm3_number', 'name="' . $name . '"'), "0", STR_PAD_LEFT);
+
+            return $new_number;
+        }
+    }
+
+    function folder($upload_path)
+    {
+        if (is_dir($upload_path) === false) {
+            mkdir($upload_path);
+        }
+        return true;
+    }
+
+
+    /** master data */
+    function lead($id = 0)
+    {
+        //$id_title = self::select('id_title', 'crm3_lead', 'id="' . $id . '"');
+        return ucwords(self::select('first_name', 'crm3_lead', 'id="' . $id . '"')) . ' ' . ucwords(self::select('last_name', 'crm3_lead', 'id="' . $id . '"'));
+    }
+    function contact($id = 0)
+    {
+        $id_title = self::select('id_title', 'crm3_contact', 'id="' . $id . '"');
+        return self::title($id_title) . ' ' . self::select('first_name', 'crm3_contact', 'id="' . $id . '"') . ' ' . self::select('last_name', 'crm3_contact', 'id="' . $id . '"');
+    }
+
+    function contact_company($id = 0)
+    {
+        $id_company = self::select('id_company', 'crm3_contact', 'id="' . $id . '"');
+        return  self::select('name', 'crm3_company', 'id="' . $id_company . '"');
+    }
+
+    function title($id = 0)
+    {
+        return self::select('name', 'crm3_title', 'id="' . $id . '"');
+    }
+    function lead_source($id = 0)
+    {
+        return self::select('name', 'crm3_lead_source', 'id="' . $id . '"');
+    }
+    function industry($id = 0)
+    {
+        return self::select('name', 'crm3_industry', 'id="' . $id . '"');
+    }
+    function company($id = 0)
+    {
+        return self::select('name', 'crm3_company', 'id="' . $id . '"');
+    }
+
+    function opportunity($id = 0)
+    {
+        return self::select('name', 'crm3_opportunity', 'id="' . $id . '"');
+    }
+
+    function user($id = 0)
+    {
+        if ($id == 0) {
+            return false;
+        } else {
+            return self::select('concat(first_name," ",last_name)', 'crm3_user', 'id="' . $id . '"');
+        }
+    }
+
+    function id_currency()
+    {
+        return  self::select('value', 'crm3_global', 'id=10');
+    }
+
+    function currency($colomn = "symbol")
+    {
+        return self::select($colomn, 'crm3_currency', 'isDefault = 1');
+    }
+    /** End : master data */
+
+
+
+    /**
+     * USER
+     */
+    function user_row($row, $level = 0)
+    {
+        $temp = array(
+            "id" => $row->id,
+            "level" => $level,
+            "user_access" => array(
+                "id" => $row->id_user_access,
+                "name" => $this->model->crm3('name', 'user_access', 'id=' . $row->id_user_access),
+            ),
+            "user_group" =>  array(
+                "id" => $row->id_user_group,
+                "name" => $this->model->crm3('name', 'user_group', 'id=' . $row->id_user_group),
+            ),
+            "code" => $row->code,
+            "max_discount" => $row->max_discount,
+            "currency" => $this->model->currency('symbol'),
+
+            "target_amount_year" => (int) $this->model->crm3('amount', 'user_target', ' id_user = "' . $row->id . '" and  year=' . date('Y')),
+            "name" => $row->first_name . ' ' . $row->last_name,
+            "email" => $row->email,
+            "input_date" => $row->input_date,
+            "status" => (bool) $row->status,
+            "child" => $this->model->crm3('count(id)', 'user', 'id_parent = ' . $row->id),
+        );
+
+        return $temp;
+    }
+
+
+    function user_recursive($id_parent = "", $json = "")
+    {
+        if (!$id_parent) $id_parent = 0;
+
+        $json = array();
+
+        $query = $this->db->query("SELECT * FROM crm3_user where presence  = 1 and id_parent = '" . $id_parent . "' order by first_name ASC");
+        foreach ($query->result() as $row) {
+
+            $child = self::select('count(id)', 'crm3_user', 'presence  = 1 and id_parent = "' . $row->id . '"  order by first_name ASC');
+
+            $data = array(
+                "id" => $row->id,
+                "user_access" => array(
+                    "id" => $row->id_user_access,
+                    "name" => $this->model->crm3('name', 'user_access', 'id=' . $row->id_user_access),
+                ),
+                "user_group" =>  array(
+                    "id" => $row->id_user_group,
+                    "name" => $this->model->crm3('name', 'user_group', 'id=' . $row->id_user_group),
+                ),
+                "code" => $row->code,
+                "max_discount" => $row->max_discount,
+                "currency" => $this->model->currency('symbol'),
+                "target_amount_year" => (int) $this->model->crm3('amount', 'user_target', ' id_user = "' . $row->id . '" and  year=' . date('Y')),
+                "target_leads" => (int) $this->model->crm3('leads', 'user_target', ' id_user = "' . $row->id . '" and  year=' . date('Y')),
+                "target_opportunities" => (int) $this->model->crm3('opportunities', 'user_target', ' id_user = "' . $row->id . '" and  year=' . date('Y')),
+                "target_quotes" => (int) $this->model->crm3('quotes', 'user_target', ' id_user = "' . $row->id . '" and  year=' . date('Y')),
+
+                "name" => $row->first_name . ' ' . $row->last_name,
+                "email" => $row->email,
+                "input_date" => $row->input_date,
+                "status" => (bool) $row->status,
+                "child" => [],
+            );
+
+            if ($child > 0) {
+                $data['child'] = self::user_recursive($row->id);
+            }
+            array_push($json, $data);
+        }
+        return $json;
+    }
+
+
+    function user_recursive_target($id_parent = "", $json = "", $year = "2020")
+    {
+        if (!$id_parent) $id_parent = 0;
+        $json = array();
+        $query = $this->db->query("SELECT * FROM crm3_user where presence  = 1 and id_parent = '" . $id_parent . "' order by first_name ASC");
+        foreach ($query->result() as $row) {
+
+            $child = self::select('count(id)', 'crm3_user', 'presence  = 1 and id_parent = "' . $row->id . '"  order by first_name ASC');
+
+            $data = array(
+                "id" => $row->id,
+                "name" => $row->first_name . ' ' . $row->last_name,
+                "year" => $year,
+                "currency" => $this->model->currency('symbol'),
+                "personal" => array(
+                    "amount" =>  (int) self::select('amount', 'crm3_user_target', 'id_user = "' . $row->id . '" and year =' . $year),
+                    "leads" => (int) self::select('leads', 'crm3_user_target', 'id_user = "' . $row->id . '" and year =' . $year),
+                    "opportunities" => (int) self::select('opportunities', 'crm3_user_target', 'id_user = "' . $row->id . '" and year =' . $year),
+                    "quotes" => (int) self::select('quotes', 'crm3_user_target', 'id_user = "' . $row->id . '" and year =' . $year),
+                ),
+
+                "team" => array(
+                    "amount" =>  self::select('amount', 'crm3_user_target', 'id_user = "' . $row->id . '" and year =' . $year) + self::recr_target_amount($row->id, 0, $year, "amount"),
+
+                    "leads" =>  self::select('leads', 'crm3_user_target', 'id_user = "' . $row->id . '" and year =' . $year) +
+                        self::recr_target_amount($row->id, 0, $year, "leads"),
+
+                    "opportunities" =>  self::select('opportunities', 'crm3_user_target', 'id_user = "' . $row->id . '" and year =' . $year) + self::recr_target_amount($row->id, 0, $year, "opportunities"),
+
+                    "quotes" =>  self::select('quotes', 'crm3_user_target', 'id_user = "' . $row->id . '" and year =' . $year) + self::recr_target_amount($row->id, 0, $year, "quotes"),
+                ),
+
+
+
+                "child" => [],
+            );
+
+            if ($child > 0) {
+                $data['child'] = self::user_recursive_target($row->id);
+            }
+            array_push($json, $data);
+        }
+        return $json;
+    }
+
+
+
+    function recr_target_amount($id_parent = "", $amount = 0, $year = "0", $colomn = "amount")
+    {
+        if (!$id_parent) $id_parent = 0;
+
+        $query = $this->db->query("SELECT * FROM crm3_user where presence  = 1 and id_parent = '" . $id_parent . "' order by first_name ASC");
+        foreach ($query->result() as $row) {
+            $child = self::select('count(id)', 'crm3_user', 'presence  = 1 and id_parent = "' . $row->id . '"  order by first_name ASC');
+
+            $temp = 0;
+            if ($child > 0) {
+                $temp = self::recr_target_amount($row->id, 0, $year, $colomn);
+            }
+
+            $amount += $temp + $this->model->crm3($colomn, 'user_target', ' id_user = "' . $row->id . '" and  year=' . $year);
+        }
+        return  $amount;
+    }
+
+
+
+
+
+
+    /** ACCESS RIGHT */
+    function access_rules($id_user_access = 0)
+    {
+
+        $access_rules = [];
+        $result  = [];
+        $query = $this->db->query('select * from crm3_user_access_rules where id_user_access = "' . $id_user_access . '"');
+        foreach ($query->result() as $row) {
+            $result = $access_rules;
+            $temp = array(
+                self::crm3('name', 'module', 'id=' . $row->id_module) => array(
+                    "access" => (bool) $row->_access,
+                    "update" => (bool) $row->_update,
+                    "insert" => (bool) $row->_insert,
+                    "delete" => (bool) $row->_delete
+                ),
+            );
+            $access_rules = array_merge($result, $temp);
+        }
+
+
+        $data = array(
+            "id_user_access" => $id_user_access,
+            "access_rules" => $access_rules,
+        );
+
+        return $data;
+    }
+    /** end : ACCESS RIGHT */
+
+    /** USER GROUP */
+    function user_group($field = "id", $id = false)
+    {
+        if ($id == false) {
+            $id =  self::id_user();
+        }
+
+        $data  = [];
+        if (self::user($id)) {
+            $id_user_group = self::crm3('id_user_group', 'user', 'id=' . $id);
+            $data = array(
+                "id" => $id,
+                "name" => self::user($id),
+                "user_group" => self::crm3('name', 'user_group', 'id=' . $id_user_group),
+                "all_access" => (bool) self::crm3('all_access', 'user_group', 'id=' . $id_user_group),
+                "sharing_team_access" => (bool) self::crm3('sharing_team_access', 'user_group', 'id=' . $id_user_group),
+                "query" => false,
+            );
+            if ($data['all_access'] == true) {
+                $data['query'] = "";
+            } else if ($data['sharing_team_access'] == true) {
+                $data['query'] = " and ( " . self::access_group($id, $field) . " $field =  $id )";
+            } else {
+                $data['query'] = " and ( " . self::access_group($id, $field) . " $field =  $id )";
+            }
+        } else {
+            $data['query'] = " and $field = 0";
+        }
+
+        return $data;
+    }
+
+    function access_group($id = 0, $field = "id")
+    {
+        $data = "";
+        $child  = "";
+
+        $query = $this->db->query("select * from crm3_user where id_parent  = " . $id . " order by first_name ASC, last_name ASC");
+        foreach ($query->result() as $row) {
+
+            $data .= " $field = " . $row->id . "  or ";
+
+            $child .= self::select('id', 'crm3_user', 'presence  = 1 and id_parent = "' . $row->id . '"  order by first_name ASC, last_name ASC');
+
+            if ($child > 0) {
+
+                $data .= self::access_group($row->id, $field);
+            }
+        }
+
+        return  $data;
+    }
+
+
+    function allow_access_data($id = false)
+    {
+        //$data = false;
+        // if ($id == false) {
+        //     $data = false;
+        // } else {
+        //     $q = "select * from crm3_user where  presence = 1  " . self::user_group()['query'] . "  order by first_name ASC, last_name ASC";
+        //     $query = $this->db->query();
+        //     echo $q;
+        //     foreach ($query->result() as $row) {
+        //         if ($row->id == $id) {
+        //             $data = true;
+        //         }
+        //     }
+        // }
+
+        $data = true;
+
+        return $data;
+    }
+
+
+    function same_team($id_user)
+    {
+        $id_user_group  = self::crm3('id_user_group', 'user', 'id=' . $id_user);
+        $id_user_group_myself  = self::crm3('id_user_group', 'user', 'id=' . self::id_user());
+        $sharing_team_access = false;
+
+        if ($id_user_group ==   $id_user_group_myself && self::crm3('sharing_team_access', 'user_group', 'id=' . $id_user_group) == true) {
+            $sharing_team_access = true;
+        }
+
+        return  $sharing_team_access;
+    }
+
+    /** end :  USER GROUP */
+
+    //** ACTIVITIES */
+    function activity_person($id_module = "", $id = "")
+    {
+
+        switch ($id_module) {
+            case "200":
+                // LEAD
+                $data =  array(
+                    "id" => $id,
+                    "name" => self::lead($id),
+                );
+                break;
+            case "300":
+                // CONTACT
+                $data =  array(
+                    "id" => $id,
+                    "name" => self::contact($id),
+                );
+                break;
+            case "400":
+                // COMPANY
+                $data =  array(
+                    "id" => $id,
+                    "name" => self::contact($id),
+                );
+                break;
+            case "500":
+                // OPPORTUNITY
+                //  $data = $note.' '.self::crm3('name','opportunity','id='.$id);
+                break;
+            case "510":
+                // LOSE
+                //$data = $note.' '.self::crm3('name','opportunity','id='.$id);
+                break;
+            case "520":
+                // DEAL
+                //   $data  = $note.' '.self::crm3('name','opportunity','id='.$id);
+                break;
+            case "550":
+                // SALES ORDER
+                //  $data  = $note.' '.self::crm3('name','sales_order','id='.$id);
+                break;
+            case "800":
+                // QUOTE
+                //  $data  = $note.' '.self::crm3('name','quote','id='.$id);
+                break;
+
+            default:
+                $data = "";
+        }
+
+
+
+        return $data;
+    }
+
+    function activity_history($id_module = "", $id = "", $row)
+    {
+        $start_date = "";
+        $end_date = "";
+        $closed  = $row['closed'] ? "" : "Estimate";
+        $amount = "";
+        if ($row['id_activity_type'] == '200' || $row['id_activity_type'] == '300') {
+            $start_date = "<div> Start date : " . date('d M Y, H:i A', strtotime($row['start_date'] . ' ' . $row['start_time'])) . ' </div>';
+            $end_date = "<div class='mb-3'> $closed End date : " . date('d M Y, H:i A', strtotime($row['end_date'] . ' ' . $row['end_time'])) . ' </div>';
+            $amount = "<div class='text-primary'>Budget  " . self::crm3('symbol', 'currency', 'isDefault=1') . ' ' . number_format($row['amount']) . " </div>";
+        }
+        $person = [];
+        if ($id_module == '400') {
+            // company
+            $person =   self::activity_person('300', $row['id_person']);
+            // 300 =  Contact 
+        } else if ($id_module == '500') {
+            // opportunity
+            $person =   self::activity_person('300', $row['id_person']);
+        } else if ($id_module == '200') {
+            // lead
+            $person =   self::activity_person('200', $row['id_person']);
+        } else if ($id_module == '600') {
+            // activity 
+            $person =   array(
+                "id" => $row['id_person'],
+                "name" => $row['id_module'] == '200' ? self::lead($row['id_person'])  : self::contact($row['id_person']),
+                "origin" =>   $row['id_module'] == '200' ? "Lead" : "Contact",
+                "company" =>  $row['id_module'] == '200' ? self::crm3('company', 'lead', 'id = ' . $row['id_person'])  : self::contact_company($row['id_person']),
+            );
+        } else {
+            $person =   self::activity_person($id_module, $id);
+        }
+
+        $temp = [];
+        $activity_comment = [];
+        $q2 = "select * from crm3_activity_comment where id_activity = '" . $row['id'] . "' ";
+        $query2 = $this->db->query($q2);
+        foreach ($query2->result() as $rec) {
+
+            $temp = array(
+                "comment" => '<b>' . self::user($rec->input_by) . '</b> ' . $rec->comment,
+                "input_date" => $rec->input_date,
+                "input_by" => self::user($rec->input_by),
+                "update_date" => $rec->update_date,
+                "update_by" =>   self::user($rec->update_by),
+            );
+            array_push($activity_comment, $temp);
+        }
+
+
+
+        $opportunity =  $row['id_opportunity'] ? "<div class='mb-3'><b>Opportunity : " . self::crm3('name', 'opportunity', 'id=' . $row['id_opportunity']) . "</b></div>" : "";
+
+        $data = array(
+            "id" => (int) $row['id'],
+            "activity_type" => array(
+                "id" => $row['id_activity_type'],
+                "name" =>  self::crm3('name', 'activity_type', 'id=' . $row['id_activity_type']),
+                "fas"  =>  self::crm3('fas', 'activity_type', 'id=' . $row['id_activity_type']),
+            ),
+            "subject" => $row['subject'],
+            "due_date" => $row['due_date'],
+            "description" => $start_date . $end_date . $opportunity . $amount . $row['description'],
+
+            "start_date" => $row['start_date'],
+            "start_time" => $row['start_time'],
+
+            "end_date" => $row['end_date'],
+            "end_time" => $row['end_time'],
+
+            "user" =>  self::user($row['id_user']),
+            "id_user" => $row['id_user'],
+            "log" => $row['log'],
+            "person" => $person,
+
+            "checkIn" => $row['checkIn_by'] ? array(
+                "datetime" => $row['checkIn_datetime'],
+                "lat"   => $row['checkIn_lat'],
+                "long"  => $row['checkIn_long'],
+                "note"  => $row['checkIn_note'],
+                "by"    => self::user($row['checkIn_by']),
+            ) : false,
+            "checkOut" => $row['checkOut_by'] ? array(
+                "datetime" => $row['checkOut_datetime'],
+                "lat"   => $row['checkOut_lat'],
+                "long"  => $row['checkOut_long'],
+                "note"  => $row['checkOut_note'],
+                "by"    => self::user($row['checkOut_by']),
+            ) : false,
+
+
+            "show" => false,
+            "closed_area" => false,
+            "id_module" => $row['id_module'],
+            "activity_comment" => $activity_comment,
+            "comment" => $row['comment'],
+            "input_date" => $row['input_date'],
+            "input_by" => self::user($row['input_by']),
+            "update_date" => $row['update_date'],
+            "update_by" =>   self::user($row['update_by']),
+        );
+        return $data;
+    }
+
+
+
+    function calculation($id_quote)
+    {
+        $id = $id_quote;
+        $data = [];
+        $query = $this->db->query('select * from crm3_quote where presence = 1 and id = "' . $id . '" order by input_date DESC ');
+        foreach ($query->result() as $row) {
+            $data = array(
+                "discount" =>  (float) $row->discount,
+                "tax" => (float) $row->tax,
+                "shipping" =>  (float) $row->shipping,
+            );
+        }
+
+        $quote_item = [];
+        $query = $this->db->query('select * from crm3_quote_detail where id_quote = "' . $id . '" and presence = 1 order by sorting ASC');
+        foreach ($query->result() as $row) {
+            $temp = array(
+                "id" => $row->id,
+                "id_product" => $row->id_product,
+                "product" => self::crm3('name', 'product', 'id=' . $row->id_product),
+                "description"  => $row->description,
+                "discount"  => $row->discount,
+                "currency"  => 'IDR',
+                "price"  => $row->price,
+                "qty"  => (int) $row->qty,
+                "subtotal"  => $row->price * $row->qty,
+                "total"  => $row->total,
+                "sorting"  => $row->sorting,
+            );
+            array_push($quote_item, $temp);
+        }
+
+
+        $total = self::crm3('SUM(total)', 'quote_detail', 'presence = 1 AND id_quote = ' . $id);
+        $discount = self::crm3('SUM( total * ( ' . $data['discount'] . ' / 100) )', 'quote_detail', 'presence = 1 AND id_quote = ' . $id);
+        $tax =   ($total - $discount) * ($data['tax'] / 100);
+        $shipping = $data['shipping'];
+        $grand_total = ($total - $discount) + $tax + $shipping;
+
+
+        $pricing = array(
+            "total" => round($total, 2),
+            "discount" => round($discount, 2),
+            "tax" => round($tax, 2),
+            "shipping" => round($shipping, 2),
+            "grand_total" => round($grand_total, 2),
+        );
+
+        $update = array(
+            //    "discount" => $discount,
+            //   "tax" => $tax,
+            "shipping" => $shipping,
+            "grand_total" => $grand_total,
+
+        );
+        $this->db->update('crm3_quote', $update, 'id=' . $id);
+
+
+        $return = array(
+            "quote_item" => $quote_item,
+            "pricing" => $pricing,
+            "total"    =>  self::crm3('count(id)', 'quote_detail', 'presence = 1 AND id_quote = ' . $id),
+        );
+        return $return;
+    }
+
+    
+    function calculation_so($id_sales_order)
+    {
+        $id = $id_sales_order;
+        $data = [];
+        $query = $this->db->query('select * from crm3_sales_order where presence = 1 and id = "' . $id . '" order by input_date DESC ');
+        foreach ($query->result() as $row) {
+            $data = array(
+                "discount" =>  (float) $row->discount,
+                "tax" => (float) $row->tax,
+                "shipping" =>  (float) $row->shipping,
+            );
+        }
+
+        $quote_item = [];
+        $query = $this->db->query('select * from crm3_sales_order_detail where id_sales_order  = "' . $id . '" and presence = 1 order by sorting ASC');
+        foreach ($query->result() as $row) {
+            $temp = array(
+                "id" => $row->id,
+                "id_product" => $row->id_product,
+                "product" => self::crm3('name', 'product', 'id=' . $row->id_product),
+                "description"  => $row->description,
+                "discount"  => $row->discount,
+                "currency"  => 'IDR',
+                "price"  => $row->price,
+                "qty"  => (int) $row->qty,
+                "subtotal"  => $row->price * $row->qty,
+                "total"  => $row->total,
+                "sorting"  => $row->sorting,
+            );
+            array_push($quote_item, $temp);
+        }
+
+
+        $total = self::crm3('SUM(total)', 'sales_order_detail', 'presence = 1 AND id_sales_order = ' . $id);
+        $discount = self::crm3('SUM( total * ( ' . $data['discount'] . ' / 100) )', 'sales_order_detail', 'presence = 1 AND id_sales_order = ' . $id);
+        $tax =   ($total - $discount) * ($data['tax'] / 100);
+        $shipping = $data['shipping'];
+        $grand_total = ($total - $discount) + $tax + $shipping;
+
+
+        $pricing = array(
+            "total" => round($total, 2),
+            "discount" => round($discount, 2),
+            "tax" => round($tax, 2),
+            "shipping" => round($shipping, 2),
+            "grand_total" => round($grand_total, 2),
+        );
+
+        $update = array(
+            //    "discount" => $discount,
+            //   "tax" => $tax,
+            "shipping" => $shipping,
+            "grand_total" => $grand_total,
+
+        );
+        $this->db->update('crm3_sales_order', $update, 'id=' . $id);
+
+
+        $return = array(
+            "quote_item" => $quote_item,
+            "pricing" => $pricing,
+            "total"    =>  self::crm3('count(id)', 'sales_order_detail', 'presence = 1 AND id_sales_order = ' . $id),
+        );
+        return $return;
+    }
+}

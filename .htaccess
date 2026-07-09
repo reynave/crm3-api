@@ -1,0 +1,5 @@
+RewriteEngine on
+RewriteBase /crm.co.id/api-v1/
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ /crm.co.id/api-v1/index.php?/$1 [L]
