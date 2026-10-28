@@ -195,6 +195,7 @@ EOT;
                 "update_date" => $row->update_date,
                 "update_by" =>  $this->model->user($row->update_by),
                 "id_stage" =>  $row->id_stage,
+                "id_opportunity_sales_stage" =>  $row->id_opportunity_sales_stage,
                 "final_stage" => $row->id_stage == $this->model->select('id', 'crm3_opportunity_stage', 'id < 999 order by progress DESC limit 1') ? true : false,
 
 
@@ -293,6 +294,18 @@ EOT;
                 "name" => $row->name,
             );
             array_push($business, $temp);
+        }
+
+        $sales_stage = [];
+        $query = $this->db->query('select * from crm3_opportunity_sales_stage where presence = 1  order by id ASC ');
+        foreach ($query->result() as $row) {
+            $temp = array(
+                "id" => $row->id,
+                "name" => $row->name,
+                "probability" => $row->probability,
+                "id_opportunity_stage" => $row->id_opportunity_stage,
+            );
+            array_push($sales_stage, $temp);
         }
 
         $lead_source = [];
@@ -409,6 +422,7 @@ EOT;
                 "product" => $product,
                 "lead_source" => $lead_source,
                 "business" => $business,
+                "sales_stage" => $sales_stage,
                 "width" => 94 / $i,
                 "user" => $user,
                 "attachment" => $attachment,
@@ -884,6 +898,7 @@ EOT;
                 "other" => isset($post['data']['other']) ? $post['data']['other'] : "",
 
                 "id_quote" => isset($post['data']['id_quote']) ? $post['data']['id_quote'] : "",
+                "id_opportunity_sales_stage" => isset($post['data']['id_opportunity_sales_stage']) ? $post['data']['id_opportunity_sales_stage'] : "0",
                 "notes1" => isset($post['data']['notes1']) ? $post['data']['notes1'] : "",
                 "notes2" => isset($post['data']['notes2']) ? $post['data']['notes2'] : "",
                 "notes3" => isset($post['data']['notes3']) ? $post['data']['notes3'] : "",
